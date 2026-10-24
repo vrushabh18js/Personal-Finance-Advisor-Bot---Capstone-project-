@@ -17,6 +17,13 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
 
+# Enable CORS for frontend deployment (e.g., Firebase Hosting)
+try:
+    from flask_cors import CORS
+    CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+except ImportError:
+    pass
+
 # Helper to get current active user ID from session or query param
 def get_current_user_id():
     uid = request.args.get('user_id', type=int)

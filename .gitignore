@@ -27,3 +27,8 @@ ENV/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Firebase CLI cache & logs
+.firebase/
+firebase-debug.log*
+

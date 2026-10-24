@@ -4,6 +4,19 @@
    =================================================================== */
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Remote Backend URL Support (e.g. Firebase Hosting -> Render / Cloud Flask backend)
+    const getBackendUrl = () => window.API_BASE_URL || localStorage.getItem('BEACON_BACKEND_URL') || '';
+    const originalFetch = window.fetch;
+    window.fetch = function(resource, init) {
+        if (typeof resource === 'string' && resource.startsWith('/api')) {
+            const base = getBackendUrl().replace(/\/$/, '');
+            if (base) {
+                resource = base + resource;
+            }
+        }
+        return originalFetch(resource, init);
+    };
+
     // Application State
     const state = {
         currentUser: null,
@@ -188,7 +201,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // Modal Helpers
     function openModal(modalId) {
         const modal = document.getElementById(modalId);
-        if (modal) modal.classList.add('active');
+        if (modal) {
+            modal.classList.add('active');
+            if (modalId === 'modal-settings') {
+                const urlInput = document.getElementById('settings-backend-url');
+                if (urlInput) urlInput.value = localStorage.getItem('BEACON_BACKEND_URL') || '';
+            }
+        }
     }
 
     function closeModal(modalId) {
@@ -1318,24 +1337,40 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Save Gemini Settings
+    // Save Gemini Settings & Backend URL
     async function handleSaveSettings(e) {
         e.preventDefault();
-        const key = document.getElementById('settings-gemini-key').value;
+        const key = (document.getElementById('settings-gemini-key')?.value || '').trim();
+        const backendUrl = (document.getElementById('settings-backend-url')?.value || '').trim();
+        
+        if (backendUrl) {
+            localStorage.setItem('BEACON_BACKEND_URL', backendUrl);
+        } else {
+            localStorage.removeItem('BEACON_BACKEND_URL');
+        }
+
         try {
-            const res = await fetch('/api/settings/api-key', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ api_key: key })
-            });
-            const data = await res.json();
-            if (data.success) {
-                closeModal('modal-settings');
-                await loadSettingsStatus();
-                alert('Gemini settings saved successfully!');
+            if (key) {
+                const res = await fetch('/api/settings/api-key', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ api_key: key })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast('Settings & Gemini API key saved!', 'success');
+                }
+            } else {
+                showToast('Settings saved successfully!', 'success');
             }
+            closeModal('modal-settings');
+            await loadSettingsStatus();
+            await refreshAllData();
         } catch (err) {
             console.error(err);
+            closeModal('modal-settings');
+            showToast('Settings saved. Refreshing data...', 'info');
+            await refreshAllData();
         }
     }
 
